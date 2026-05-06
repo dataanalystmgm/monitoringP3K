@@ -30,7 +30,7 @@ const App = () => {
         setLoading(false);
       });
   };
-
+//test-push
   useEffect(() => {
     fetchData();
     const interval = setInterval(() => fetchData(true), 20000); // Auto-refresh 20 detik

@@ -120,7 +120,12 @@ const App = () => {
     }).pop();
 
     if (!latestData) return;
-    setSelectedStation({ id, status: statusObj.color, data: latestData });
+    setSelectedStation({ 
+      id, 
+      status: statusObj.color, 
+      data: latestData,
+      location: latestData.locationName || `STATION ${id}`
+     });
     setLocalItems(latestData.items || []);
   };
 
@@ -264,7 +269,7 @@ const App = () => {
         <div className="modal-overlay">
           <div className="modal-content animate-pop">
             <div className="modal-header gradient-bg">
-              <h2>Station {selectedStation.id.toString().padStart(2, '0')}</h2>
+              <h2>Station {selectedStation.id.toString().padStart(2, '0')} - {selectedStation.location.toString()}</h2>
               <button className="close-x" onClick={() => setSelectedStation(null)}>&times;</button>
             </div>
             <div className="modal-body custom-scroll">

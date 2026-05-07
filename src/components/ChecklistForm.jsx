@@ -3,6 +3,7 @@ import Swal from 'sweetalert2';
 
 const ChecklistForm = ({ onSubmit, onCancel }) => {
   const [stationId, setStationId] = useState('');
+  const locationName = stationInfo?.locationName;
   
   // Daftar item berdasarkan gambar yang Anda kirimkan
   const [items, setItems] = useState([
@@ -59,7 +60,7 @@ const ChecklistForm = ({ onSubmit, onCancel }) => {
               min="1" 
               max="40" 
               className="modern-input"
-              value={stationId}
+              value={locationName}
               onChange={(e) => setStationId(e.target.value)}
               placeholder="Contoh: 5"
               required

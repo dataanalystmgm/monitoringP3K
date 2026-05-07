@@ -618,3 +618,11 @@ body {
 .btn-secondary { background: #e2e8f0; color: #475569; border: none; padding: 12px 25px; border-radius: 8px; cursor: pointer; margin-right: 10px; }
 
 .items-list-container { max-height: 400px; overflow-y: auto; margin-bottom: 20px; border: 1px solid #f1f5f9; border-radius: 8px; }
+.station-label {
+  font-size: 0.7rem; /* Kecilkan sedikit jika teks terlalu panjang */
+  font-weight: bold;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis; /* Tambah titik-titik jika teks terpotong */
+  margin: 2px 0;
+}

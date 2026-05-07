@@ -5,7 +5,6 @@ import Legend from './components/Legend';
 import './index.css';
 
 const App = () => {
-  // --- 1. STATE MANAGEMENT ---
   const [submissions, setSubmissions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedStation, setSelectedStation] = useState(null);

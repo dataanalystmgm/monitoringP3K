@@ -5,8 +5,7 @@ import Legend from './components/Legend';
 import './index.css';
 
 const App = () => {
-  //--test--
-  //--tets2--
+  // --- 1. STATE MANAGEMENT ---
   const [submissions, setSubmissions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedStation, setSelectedStation] = useState(null);
@@ -44,9 +43,7 @@ const App = () => {
     
     const targetDateStr = date.toLocaleDateString('en-CA');
     const logs = submissions.filter(s => {
-      const sId = typeof s.stationId === 'string' 
-        ? parseInt(s.stationId.replace(/\D/g, '')) 
-        : s.stationId;
+      const sId = Number(s.stationId);
       return sId === id && new Date(s.timestamp).toLocaleDateString('en-CA') === targetDateStr;
     });
 
@@ -116,7 +113,7 @@ const App = () => {
 
     const todayStr = new Date().toLocaleDateString('en-CA');
     const latestData = submissions.filter(s => {
-      const sId = typeof s.stationId === 'string' ? parseInt(s.stationId.replace(/\D/g, '')) : s.stationId;
+      const sId = Number(s.stationId);
       return sId === id && new Date(s.timestamp).toLocaleDateString('en-CA') === todayStr;
     }).pop();
 
@@ -126,7 +123,7 @@ const App = () => {
       status: statusObj.color, 
       data: latestData,
       location: latestData.locationName || `STATION ${id}`
-     });
+    });
     setLocalItems(latestData.items || []);
   };
 
@@ -167,6 +164,96 @@ const App = () => {
     }
   };
 
+  // --- LOGIKA BARU: HANDLER MASS VALIDATE ---
+  const handleMassValidate = async () => {
+    // 1. Cari semua station yang Completed (Green) tetapi Unvalidated
+    const today = new Date();
+    const targetStations = [];
+
+    for (let i = 1; i <= 40; i++) {
+      const status = getStationStatusByDate(i, today);
+      if (status.color === 'green' && !status.validated) {
+        const stationInfo = submissions.find(s => Number(s.stationId) === i);
+        targetStations.push({
+          id: i,
+          location: stationInfo?.locationName || `STATION ${i}`
+        });
+      }
+    }
+
+    if (targetStations.length === 0) {
+      Swal.fire('Info', 'Tidak ada station dengan status Unvalidated hari ini.', 'info');
+      return;
+    }
+
+    // 2. Buat HTML String untuk daftar checklist di dalam SweetAlert2
+    let checkboxHtml = '<div style="text-align: left; max-height: 250px; overflow-y: auto; padding: 10px; border: 1px solid #eee; border-radius: 5px;">';
+    targetStations.forEach(st => {
+      checkboxHtml += `
+        <div style="margin-bottom: 8px; display: flex; align-items: center;">
+          <input type="checkbox" id="mass-chk-${st.id}" value="${st.id}" checked style="margin-right: 10px; transform: scale(1.2);">
+          <label for="mass-chk-${st.id}" style="font-weight: bold; cursor: pointer;">
+            [${st.id.toString().padStart(2, '0')}] ${st.location}
+          </label>
+        </div>
+      `;
+    });
+    checkboxHtml += '</div>';
+
+    // 3. Tampilkan Form Konfirmasi Pilihan & Password
+    const { value: formValues } = await Swal.fire({
+      title: 'Mass Validate Admin',
+      html: `
+        <p style="font-size: 14px; margin-bottom: 10px; color: #666;">Pilih station yang ingin divalidasi sekaligus:</p>
+        ${checkboxHtml}
+        <input type="password" id="mass-password" class="swal2-input" placeholder="Masukkan Password Admin" style="margin-top: 15px; width: 80%;">
+      `,
+      focusConfirm: false,
+      showCancelButton: true,
+      preConfirm: () => {
+        const passwordInput = document.getElementById('mass-password').value;
+        
+        // Ambil semua ID station yang posisinya di-checklist
+        const selectedIds = targetStations
+          .filter(st => document.getElementById(`mass-chk-${st.id}`).checked)
+          .map(st => st.id);
+
+        if (selectedIds.length === 0) {
+          Swal.showValidationMessage('Pilih minimal satu station!');
+          return false;
+        }
+        if (!passwordInput) {
+          Swal.showValidationMessage('Password admin wajib diisi!');
+          return false;
+        }
+        if (passwordInput !== "admin") {
+          Swal.showValidationMessage('Password salah!');
+          return false;
+        }
+
+        return selectedIds; // Mengembalikan array ID yang dipilih jika lolos validasi
+      }
+    });
+
+    // 4. Kirim Data Array ke Server (GAS)
+    if (formValues) {
+      Swal.fire({ title: 'Memproses Validasi Massal...', didOpen: () => Swal.showLoading() });
+      try {
+        const response = await fetch(GAS_URL, {
+          method: 'POST',
+          body: JSON.stringify({ action: 'mass_validate', stationIds: formValues })
+        });
+        const result = await response.json();
+        if (result.result === 'success') {
+          Swal.fire('Berhasil!', `${result.count} Station telah divalidasi sekaligus.`, 'success');
+          fetchData(true);
+        }
+      } catch (e) {
+        Swal.fire('Gagal', 'Terjadi kesalahan sistem saat menghubungi server.', 'error');
+      }
+    }
+  };
+
   // --- 7. RENDER VIEW ---
   return (
     <div className="dashboard-container full-width">
@@ -177,9 +264,15 @@ const App = () => {
 
       {activeTab === 'dashboard' ? (
         <>
-          <header className="header-compact">
-            <h1>Monitoring Kotak P3K - MGM</h1>
-            <span className="refresh-tag">Auto-refresh: 20s</span>
+          <header className="header-compact" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <h1>Monitoring Kotak P3K</h1>
+              <span className="refresh-tag">Auto-refresh: 20s</span>
+            </div>
+            {/* TOMBOL MASS VALIDATE BARU */}
+            <button className="btn-modern btn-validate" onClick={handleMassValidate} style={{ padding: '8px 16px', fontSize: '13px', borderRadius: '6px' }}>
+              ⚙️ Mass Validate
+            </button>
           </header>
 
           <div className="summary-grid">
@@ -214,24 +307,13 @@ const App = () => {
               {[...Array(40)].map((_, i) => {
                 const id = i + 1;
                 const status = getStationStatusByDate(id, new Date());
-                
-                // Cari data station (tanpa filter tanggal agar nama lokasi selalu muncul)
-                // Cari data station untuk ekstraksi nama lokasi
-                const stationInfo = submissions.find(s => {
-                  const sId = typeof s.stationId === 'string' 
-                    ? parseInt(s.stationId.replace(/\D/g, '')) 
-                    : s.stationId;
-                  return sId === id;
-                });
-
-                // LOGIKA BARU: Menghapus 2 digit angka di depan dan spasi setelahnya
-                const locationName = stationInfo?.locationName || `STATION ${id}`
+                const stationInfo = submissions.find(s => Number(s.stationId) === id);
 
                 return (
                   <StationCard 
                     key={id} 
                     id={id} 
-                    location={locationName} // Sekarang akan mengirim "Lobby"
+                    location={stationInfo?.locationName || `KOTAK ${id}`} 
                     status={status.color} 
                     isValidated={status.validated} 
                     onClick={() => handleCardClick(id)} 
@@ -270,7 +352,7 @@ const App = () => {
         <div className="modal-overlay">
           <div className="modal-content animate-pop">
             <div className="modal-header gradient-bg">
-              <h2>Station {selectedStation.id.toString().padStart(2, '0')} - {selectedStation.location.toString()}</h2>
+              <h2>Station {selectedStation.id.toString().padStart(2, '0')} - {selectedStation.location}</h2>
               <button className="close-x" onClick={() => setSelectedStation(null)}>&times;</button>
             </div>
             <div className="modal-body custom-scroll">
